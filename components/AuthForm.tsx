@@ -2,7 +2,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -15,21 +14,25 @@ import {
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import Image from "next/image";
-import  Link  from "next/link";
+import Link from "next/link";
+import { createAccount, signInUser } from "@/lib/actions/user.actions";
+import OtpModal from "./OtpModal";
 
 type FormType = "sign-in" | "sign-up";
 
 const authFormSchema = (formType: FormType) => {
   return z.object({
     email: z.string().email(),
-    fullName: formType === "sign-up" 
-    ? z.string().min(2).max(50) 
-    : z.string().optional(),
+    fullName:
+      formType === "sign-up"
+        ? z.string().min(2).max(50)
+        : z.string().optional(),
   });
 };
 const AuthForm = ({ type }: { type: FormType }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [accountId, setAccountId] = useState(null);
 
   const formSchema = authFormSchema(type);
 
@@ -44,9 +47,24 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
   // 2. Define a submit handler.
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    // Do something with the form values.
-    // ✅ This will be type-safe and validated.
-    console.log(values);
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      const user =
+        type === "sign-up"
+          ? await createAccount({
+              fullName: values.fullName || "",
+              email: values.email,
+            })
+          : await signInUser({ email: values.email });
+
+      setAccountId(user.accountId);
+    } catch (error) {
+      setErrorMessage("Failed to create an account. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -75,10 +93,11 @@ const AuthForm = ({ type }: { type: FormType }) => {
                         {...field}
                       />
                     </FormControl>
-
                   </div>
 
-                  <FormMessage className="shad-form-message">{form.formState.errors.fullName?.message}</FormMessage>
+                  <FormMessage className="shad-form-message">
+                    {form.formState.errors.fullName?.message}
+                  </FormMessage>
                 </FormItem>
               )}
             />
@@ -141,6 +160,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
       </Form>
 
       {/* OIP verifictaion */}
+      {accountId && (
+        <OtpModal email={form.getValues("email")} accountId={accountId} />
+      )}
     </>
   );
 };
